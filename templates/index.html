@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>UAV Accuracy Multi-Model Predictor</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap');
+        body { background-color: #f0f2f5; font-family: 'Tajawal', sans-serif; color: #333; }
+        .main-card { border: none; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); overflow: hidden;}
+        .header-section { background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); color: white; padding: 35px; }
+        .section-title { font-size: 1.1rem; font-weight: 700; color: #1e3a8a; border-bottom: 2px solid #e9ecef; padding-bottom: 10px; margin: 25px 0 15px 0; }
+        .accuracy-bar { height: 8px; border-radius: 4px; background-color: #e9ecef; }
+        .chart-container { position: relative; margin: auto; height: 350px; width: 100%; }
+        .table th { background-color: #f8f9fa; text-align: center; font-size: 0.9rem; }
+        .table td { text-align: center; vertical-align: middle; }
+    </style>
+</head>
+<body>
+
+<div class="container py-5">
+    <div class="card main-card">
+        <!-- Header -->
+        <div class="header-section text-center">
+            <h2 class="mb-2"><i class="fas fa-robot me-2"></i> النظام الاستباقي للتنبؤ بدقة النماذج الرقمية (UAV)</h2>
+            <p class="mb-0 opacity-75 small">مقارنة أداء: Random Forest | Artificial Neural Networks | Support Vector Regression</p>
+        </div>
+
+        <div class="card-body p-4 p-md-5">
+            <form method="POST">
+                <div class="row">
+                    <!-- Flight Specs -->
+                    <div class="col-lg-6">
+                        <div class="section-title"><i class="fas fa-map-marked-alt me-2"></i> معطيات الموقع والرحلة</div>
+                        <div class="row g-3">
+                            <div class="col-6">
+                                <label class="form-label small fw-bold">منسوب النقطة (m)</label>
+                                <input type="number" step="any" name="ele" class="form-control shadow-sm" placeholder="مثلاً: 385" required>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small fw-bold">ارتفاع الطيران (m)</label>
+                                <input type="number" step="any" name="alt" class="form-control shadow-sm" placeholder="مثلاً: 80" required>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small fw-bold">تضاريس المنطقة</label>
+                                <select name="terrain" class="form-select shadow-sm">
+                                    <option value="0">مستوية (Flat)</option>
+                                    <option value="1">منحدرة (Steep)</option>
+                                </select>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small fw-bold">نوع الغطاء</label>
+                                <select name="land" class="form-select shadow-sm">
+                                    <option value="0">إسفلتي</option>
+                                    <option value="1">تربة عارية</option>
+                                    <option value="2">مباني</option>
+                                    <option value="3">طريق ترابي</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Camera Specs -->
+                    <div class="col-lg-6">
+                        <div class="section-title"><i class="fas fa-microchip me-2"></i> المعايير الهندسية للكاميرا</div>
+                        <div class="row g-3">
+                            <div class="col-4">
+                                <label class="form-label small fw-bold">Focal (mm)</label>
+                                <input type="number" step="any" name="focal" class="form-control shadow-sm" value="8.8" required>
+                            </div>
+                            <div class="col-4">
+                                <label class="form-label small fw-bold">Sensor (mm)</label>
+                                <input type="number" step="any" name="sensor" class="form-control shadow-sm" value="13.2" required>
+                            </div>
+                            <div class="col-4">
+                                <label class="form-label small fw-bold">Width (Px)</label>
+                                <input type="number" step="any" name="img_width" class="form-control shadow-sm" value="5472" required>
+                            </div>
+                        </div>
+                        <div class="alert alert-info mt-3 small py-2 shadow-sm">
+                            <i class="fas fa-lightbulb me-1"></i> يتم حساب GSD ديناميكياً وتطبيقه على كافة الخوارزميات.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-center mt-5">
+                    <button type="submit" class="btn btn-primary px-5 py-3 rounded-pill shadow-lg fw-bold fs-5 transform-hover">
+                        <i class="fas fa-cogs me-2"></i> تشغيل المقارنة الثلاثية
+                    </button>
+                </div>
+            </form>
+
+            {% if results %}
+                <div class="mt-5 border-top pt-5">
+                    <div class="row g-4">
+                        <!-- Table -->
+                        <div class="col-xl-7">
+                            <div class="bg-white p-3 rounded border h-100 shadow-sm">
+                                <h5 class="fw-bold mb-4 text-center text-primary">المقارنة الإحصائية للأداء</h5>
+                                <div class="table-responsive">
+                                    <table class="table table-hover align-middle">
+                                        <thead>
+                                            <tr>
+                                                <th class="text-start">الخوارزمية</th>
+                                                <th>ΔX (cm)</th>
+                                                <th>ΔY (cm)</th>
+                                                <th>ΔZ (cm)</th>
+                                                <th style="width: 120px;">الدقة R²</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td class="text-start fw-bold"><i class="fas fa-tree text-success me-2"></i> Random Forest</td>
+                                                <td>{{ results.rf[0] }}</td>
+                                                <td>{{ results.rf[1] }}</td>
+                                                <td class="text-primary fw-bold">{{ results.rf[2] }}</td>
+                                                <td><span class="badge bg-success w-100">{{ results.rf_acc }}%</span></td>
+                                            </tr>
+                                            <tr>
+                                                <td class="text-start fw-bold"><i class="fas fa-brain text-danger me-2"></i> ANN</td>
+                                                <td>{{ results.ann[0] }}</td>
+                                                <td>{{ results.ann[1] }}</td>
+                                                <td class="text-primary fw-bold">{{ results.ann[2] }}</td>
+                                                <td><span class="badge bg-info w-100">{{ results.ann_acc }}%</span></td>
+                                            </tr>
+                                            <tr>
+                                                <td class="text-start fw-bold"><i class="fas fa-project-diagram text-warning me-2"></i> SVR</td>
+                                                <td>{{ results.svr[0] }}</td>
+                                                <td>{{ results.svr[1] }}</td>
+                                                <td class="text-primary fw-bold">{{ results.svr[2] }}</td>
+                                                <td><span class="badge bg-warning text-dark w-100">{{ results.svr_acc }}%</span></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="mt-3 p-2 bg-light rounded text-center small text-muted">
+                                    التحليل يعتمد على 21 نقطة تحقق (Check Points) مستقلة | GSD: <strong>{{ results.gsd }} cm</strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Graph -->
+                        <div class="col-xl-5">
+                            <div class="bg-white p-3 rounded border h-100 shadow-sm">
+                                <h5 class="fw-bold mb-4 text-center text-primary">التحليل الراداري للأخطاء</h5>
+                                <div class="chart-container">
+                                    <canvas id="predictionChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <footer class="text-center mt-4 text-muted small">
+        <p>رسالة دكتوراه - جامعة حمص | تطوير: المهندس محمد القدور</p>
+    </footer>
+</div>
+
+<script>
+    {% if results %}
+    const ctx = document.getElementById('predictionChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['الخطأ الأفقي X', 'الخطأ الأفقي Y', 'خطأ المنسوب Z'],
+            datasets: [
+                {
+                    label: 'Random Forest',
+                    data: {{ results.rf | tojson }},
+                    backgroundColor: 'rgba(25, 135, 84, 0.7)',
+                    borderColor: 'rgb(25, 135, 84)',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Neural Network (ANN)',
+                    data: {{ results.ann | tojson }},
+                    backgroundColor: 'rgba(220, 53, 69, 0.7)',
+                    borderColor: 'rgb(220, 53, 69)',
+                    borderWidth: 1
+                },
+                {
+                    label: 'SVR',
+                    data: {{ results.svr | tojson }},
+                    backgroundColor: 'rgba(255, 193, 7, 0.7)',
+                    borderColor: 'rgb(255, 193, 7)',
+                    borderWidth: 1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { 
+                    beginAtZero: true, 
+                    title: { display: true, text: 'الخطأ المتبقي (سنتيمتر)' } 
+                }
+            },
+            plugins: {
+                legend: { position: 'bottom', labels: { boxWidth: 12, font: { family: 'Tajawal' } } }
+            }
+        }
+    });
+    {% endif %}
+</script>
+
+</body>
+</html>
